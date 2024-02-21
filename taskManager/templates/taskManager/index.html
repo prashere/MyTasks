@@ -1,0 +1,66 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../static/taskManager/style.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <title>myTasks</title>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row landing">
+            <div class="col-lg-5 d-flex justify-content-center align-items-center" id="image-section">
+                <img class="img-fluid" src="../../static/img/landing.jpg" id="image-container">
+                <p class="logo">myTasks</p>
+            </div>
+            <div class="col-lg-6 d-flex justify-content-center align-items-center" id="text-section">
+                <div class="text-container"><!--main page's section-->
+                    <p class="title">Get organized with your <span id='t' style="font-size: 36px;">T</span>asks </p>
+                    <p class="content" style="text-align: justify;">These approaches should help make the #image-section
+                        fit the height of its container. If you're still facing issues, please check if there are any
+                        conflicting styles from other CSS files or inline styles that may </p>
+                    <div class="btn started" id="registerView" style="width: 100%;  background-color: #b09f95;
+                        border: none; color: white; ">
+                        Get started
+                    </div><br>
+                    <p class="option" id="loginView">Already have an account? Log In</p>
+                </div>
+
+                <div class="logIn" style="display: none;"><!--log In page's section-->
+                    <p class="title">Sign In</p>
+                    <input type="text" id="usernameLogin" name="username" placeholder="Username" required><br>
+                    <input type="password" id="passwordLogin" name="password" placeholder="Password" required><br>
+                    <div class="btn started" id="btnLogin" style="width: 100%;  background-color: #b09f95;
+                        border: none; ">
+                        <a href="#" style="color: white;"> Sign In </a>
+                    </div><br>
+                    <p class="option" id="registerView">Don't have an account? Register </p>
+                </div>
+
+                <div class="register" style="display: none;"><!--register page's section-->
+                    <p class="title">Register</p>
+                    <input type="email" id="email" name="email" placeholder="Email" required><br>
+                    <input type="text" id="usernameRegister" name="username" placeholder="Username" required><br>
+                    <input type="password" id="passwordRegister" name="password" placeholder="Password" required><br>
+                    <input type="password" id="passwordConfirm" name="passwordConfirm"
+                        placeholder="Re-enter the above password" required><br>
+                    <div class="btn started" id="btnRegister" style="width: 100%;  background-color: #b09f95;
+                        border: none; ">
+                        <a href="#" style="color: white;"> Register </a>
+                    </div><br>
+                    <p class="option" id="loginView">Already have an account? Sign In </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{% static 'taskManager/index.js' %}"></script>
+
+</body>
+
+</html>

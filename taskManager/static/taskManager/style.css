@@ -1,0 +1,146 @@
+/* importing font-styles from google fonts */
+@import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@1,700&family=Roboto:wght@300&display=swap');
+
+.container-fluid{
+    height:auto;
+    min-height: 100vh;
+    padding: 50px;
+    background-color: #e5e8eb;
+}
+#image-container{
+    width:100%;
+    border-radius: 20px;
+    margin-left: 50px;
+    margin-top: 30px;
+
+}
+.logo{
+    font-weight: 800;
+    color: aliceblue;
+    top:30px;
+    left:50px;
+    position: absolute;
+    font-family: 'Kanit', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+}
+.text-container,.logIn,.register{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 75%;
+    margin-left: 100px;
+}
+.title,#t{
+    font-family: 'Kanit',sans-serif;
+    font-size: 30px;
+    letter-spacing: 1px;
+}
+#t{
+    color:#b09f95;
+    display: inline-block;
+    animation: jumpy 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+}
+.content{
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    color:black;
+}
+.started a, .option{
+    text-decoration: none;
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color:#22252b;
+    letter-spacing: 1px;
+}
+.started:hover{
+    background-color: #a18d81;
+}
+.option:hover{
+    text-decoration: none;
+    color: #53655c;
+    cursor: pointer;
+}
+@keyframes jumpy{
+    0%, 100% {
+        transform: translateY(0);
+    }
+    25% {
+        transform: translateY(-6px);
+    }
+    50% {
+        transform: translateY(0);
+    }
+    75% {
+        transform: translateY(-3px);
+    }
+}
+
+#usernameLogin,#passwordLogin,#usernameRegister,#passwordRegister,#passwordConfirm,#email{
+    width: 100%;
+    padding: 5px 10px;
+    font-family: 'Roboto',sans-serif;
+    border: 1px solid #b2beb8;
+    background-color: white;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* media queries for responsiveness */
+@media (max-width:600px) {
+    #image-container{
+        margin-left: 0;
+        margin-top: 20px;
+        width:90%;
+    }
+    .text-container,.logIn,.register{
+        margin-left: 0;
+    }
+    .logo{
+        top:20px;
+        left: 50px;
+        font-size: 22px;
+    }
+    #text-section{
+        margin-top: 30px;
+    }
+    #image-section{
+        padding:0px 20px;
+    }
+    .option{
+        font-size: 12px;
+        text-align: center;
+    }
+    .title{
+        font-size: 22px;
+    }
+    
+}
+
+@media (min-width:601px) and (max-width:992px) {
+    #image-container{
+        margin-left: 0;
+        margin-top: 20px;
+        width:80%;
+    }
+    .text-container,.logIn,.register{
+        margin-left: 0;
+    }
+    .logo{
+        top:20px;
+        left: 130px;
+        font-size: 22px;
+    }
+    #text-section{
+        margin-top: 60px;
+    }   
+}
+
+@media (min-width: 1601px) {
+    .logo{
+        left: 100px;
+        top:50px;
+    }
+}

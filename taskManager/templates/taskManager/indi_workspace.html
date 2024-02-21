@@ -1,0 +1,68 @@
+{% extends 'taskManager/layout.html' %}
+{% load static %}
+
+{% block body %}
+<nav class="navbar navbar-expand" id="workspace-nav">
+    <div class="container-fluid">
+        <div class="workspace" data-space-id="{{details.id}}">{{details.title}}</div>
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" id="list" href="#" role="button" data-bs-toggle="dropdown">
+                    Lists
+                </a>
+                <div class="dropdownContainer">
+                    <ul class="dropdown-menu" style="margin-top: 10px;"><!-- filled via javaScript-->
+                    </ul>
+                </div>
+            </li>
+            <li class="nav-item">
+                <div class="btn btn-success"
+                    style="background-color: #53655c; border: none; pointer-events: none; margin-bottom: 0px;">
+                    {{details.category}}</div>
+            </li>
+
+        </ul>
+    </div>
+</nav>
+<div class="container-fluid">
+    <div class="description">
+        {{details.description}}
+    </div>
+    {% if details.category == 'Work' %}
+    <div class="people">
+        <div class="creator">Creator:<span><i class="fa-solid fa-user"></i> {{details.creator}}</span></div>
+        <div class="members">Members:{%for person in members%} <span><i class="fa-solid fa-user"></i>{{person}}</span>
+            {% endfor %}</div>
+    </div>
+    {% endif %}
+    {% if details.creator == request.user %}
+    <div class="add" id="add-list" style="cursor: pointer;">
+        <i class="fa-solid fa-plus"></i>
+        ADD NEW LIST
+    </div>
+    {% endif %}
+
+    <div class="list_name" style="display: none;">
+        <input type="text" data-workspace-id="{{details.id}}" id="list-title" name="list-name" placeholder="Title"
+            required>
+        <div class="btn btn-primary" id="create-list"
+            style="display: inline-block; background-color: #53655c; border: none;">Create</div>
+    </div>
+    <div class="list-container" style="display: flex; flex-direction: column; align-items: center ;padding:50px 0;">
+        <div class="list" style="display: none;">
+            <div class="add" id="add" style="color: white; margin:0px; padding: 8px;"></div>
+            {% if details.creator == user%}
+            <div class="card" id="addTaskContainer"></div><!--dynamically filled using javascript-->
+            {% endif %}
+            <hr style="border-color: white; height: 2px;">
+
+            <div id="taskContainer"></div><!--dynamically filled using javascript-->
+        </div>
+    </div>
+</div>
+<script>
+    const active_id = document.querySelector('.workspace').getAttribute('data-space-id');
+    localStorage.setItem('activeOption', `workspace-${active_id}`);
+</script>
+<script src="{% static 'taskManager/workspace.js' %}"></script>
+{% endblock %}
