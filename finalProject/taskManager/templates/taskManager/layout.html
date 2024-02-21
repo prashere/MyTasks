@@ -1,0 +1,149 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>myTasks</title>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link rel="stylesheet" href="../../static/taskManager/layout.css">
+    <script src="https://kit.fontawesome.com/d3acb3ae7f.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row flex-nowrap">
+            <div class="col-auto col-md-3 col-xl-2 bg-dark" id="sidebar"><!--sidebar starts-->
+                <div class="sidebar-content">
+                    <h3 class="d-none d-md-block text-white element logo">myTasks</h3>
+                    <div class="element bor" style="margin-bottom: 0;"><i class="fa-solid fa-user"></i><span
+                            class="user text-white d-none d-md-block ">{{user.username}}</span></div>
+                    <p class="text-white d-block element menu bor">Menu</p>
+                    <div class="element" id="workspace" style="margin-top: 10px;">
+                        <p class="text-white d-none d-md-block">WORKSPACES</p>
+                    </div>
+                    <a class="element bor toggle-active" href="{% url 'workspace'%}" id="create"
+                        style="margin-bottom: 3px;"><i class="fa-solid fa-plus"></i>
+                        <p class="text-white d-none d-md-block">Create Workspace </p>
+                    </a>
+                    <div id="workspace_container"></div> <!--Filled using JavaScript-->
+                    <ul class="list-unstyled"></ul>
+
+                    <a href="{% url 'notification'%}" class="element bor toggle-active" id="notification"
+                        style="margin-top: 100px; margin-bottom: 3px;"><i class="fa-solid fa-bell"></i>
+                        <p class="text-white d-none d-md-block">Notifications</p>
+                    </a>
+                    <a class="element bor" id="signout" href="{% url 'signout' %}"><i
+                            class="fa-solid fa-arrow-right-from-bracket"></i>
+                        <p class="text-white d-none d-md-block">Sign Out</p>
+                    </a>
+                </div>
+            </div><!--sidebar ends-->
+
+            <div class="col" id="content" style="margin: 0; padding:0;">
+                {% block body %}
+                {% endblock %}
+            </div>
+
+        </div>
+    </div>
+    <script>
+        function updateMarginLeft() {
+            /*
+            Calculates the current width of the element of ID 'sidebar'
+            Then, sets the left margin of the element of ID 'content' to the width of the sidebar.
+            */
+            const sidebar = document.querySelector('#sidebar');
+            const sidebarWidth = sidebar.offsetWidth;
+            const content = document.querySelector('#content');
+            content.style.marginLeft = `${sidebarWidth}px`;
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial margin setting
+            setTimeout(() => {
+                updateMarginLeft();
+            }, 100);
+
+            // Calling the function to dynamically update the left-margin for each resize of the screen
+            window.addEventListener('resize', updateMarginLeft);
+
+            document.querySelector('#signout').addEventListener('click', () => {
+                localStorage.removeItem('activeOption');// clearing the local storage on sign out.
+            })
+
+
+
+            /* Fetching data from this url to display the list of existing workspaces
+            created by the current user in the navigation bar present in the leftmost 
+            part of the webpage.*/
+            fetch('/userWorkspace/')
+                .then(response => response.json())
+                .then(data => {
+                    // getting the parent container element
+                    const parentContainer = document.querySelector('#workspace_container');
+                    if (data.workspaces) {
+                        for (let i = 0; i < data.workspaces.length; i++) {
+                            const individual_workspace = data.workspaces[i];
+
+                            const element = document.createElement('a');
+                            element.href = `/workspace/${individual_workspace.id}`;
+                            element.classList.add('element');
+                            element.classList.add('my-spaces');
+                            element.classList.add('toggle-active');
+                            element.id = `workspace-${individual_workspace.id}`;
+                            element.innerHTML = `<i class="fa-solid fa-briefcase"></i><p class="text-white d-none d-md-block">${individual_workspace.title}</p>`;
+
+                            parentContainer.append(element);
+                        }
+                        /* Toggling the active classes on the individual workspace's
+                        on click */
+                        options = document.querySelectorAll('.toggle-active');
+
+                        options.forEach(option => {
+                            option.addEventListener('click', (event) => {
+                                options.forEach(item => {
+                                    item.classList.remove('active');
+                                })
+
+                                option.classList.add('active');
+                                localStorage.setItem('activeOption', option.id);
+
+                            })
+                        })
+                        // Checking if there's no active option in local storage
+                        const activeOptionId = localStorage.getItem('activeOption');
+                        if (!activeOptionId) {
+                            // Setting "Create Workspace" as active if there's no active option
+                            const createWorkspaceOption = document.getElementById('create');
+                            if (createWorkspaceOption) {
+                                createWorkspaceOption.classList.add('active');
+                                localStorage.setItem('activeOption', 'create');
+                            }
+                        } else {
+                            // Restoring the active option from local storage
+                            const activeOption = document.getElementById(activeOptionId);
+                            if (activeOption) {
+                                activeOption.classList.add('active');
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.log('Fetch error', error)
+                })
+        })
+
+
+
+    </script>
+    <script src="{% static 'bootstrap/jquery.slim.min.js' %}"></script>
+    <script src="{% static 'bootstrap/popper.min.js' %}"></script>
+    <script src="{% static 'bootstrap/bootstrap.min.js' %}"></script>
+</body>
+
+</html>

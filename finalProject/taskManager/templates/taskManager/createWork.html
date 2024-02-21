@@ -1,0 +1,96 @@
+{% extends 'taskManager/layout.html' %}
+
+{% block body %}
+<div class="container-fluid" id="create-workspace">
+    <div class="container" id="formContainer">
+        <div class="h3">New Workspace</div>
+
+        <form style="margin-bottom:10px;" method="post" action="{% url 'workspace' %}" id="work">
+            {% csrf_token %}
+            <label for="title">TITLE</label><br>
+            <input type="text" name="title" id="title" placeholder="title" required>
+            <br>
+            <label for="description">DESCRIPTION</label><br>
+            <textarea rows="10" cols="50" placeholder="description" name="description" id="description"
+                required></textarea>
+            <br>
+            <label for="category">CATEGORY</label>
+            <select id="category" required name="category">
+                <option disabled selected value="">Select an option</option>
+                {% for item in choice %}
+                <option value="{{item}}">{{item}}</option>
+                {% endfor %}
+            </select>
+            <div class="btn btn-primary" style="background-color: #53655c; border: none;" id="confirm">Confirm category
+            </div>
+            <br><br>
+            <p class="message"></p>
+            <div class="additional-form" style="display: none;">
+                <label for="select-users">SELECT USERS</label>
+                <ul class="list-unstyled">
+                    {% for sent_user in users %}
+                    {% if sent_user != user%}
+                    <li style="display: inline-block; margin-left: 5px;" class="message">
+                        <input type="checkbox" name="selected_users" value="{{ sent_user.id }}">
+                        {{ sent_user.username }}
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <input type="submit" class="btn btn-primary" id="submit" value="Create"
+                style="background-color: #22252B; border: none; display: none;margin-bottom: 10px;">
+        </form>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelector('#confirm').addEventListener('click', () => {
+            /* When the 'confirm category' button is clicked, fetches the value of title,
+            description and category. Alerts the user to fill in all the fields if any
+            of the fields are empty.
+
+            Performs different operations in the selection of 'Personal' and 'Work' category.
+            */
+            const title = document.querySelector('#title').value;
+            const description = document.querySelector('#description').value;
+            const categoryContainer = document.querySelector('#category');
+            const category = categoryContainer.value;
+            if (title == '' || description == '' || category == '') {
+                alert('PLease fill out all the fields ');
+            }
+            if (category === 'Personal') {
+                const message = document.querySelector('.message');
+                message.innerHTML = 'Click Create to create the workspace !';
+
+                document.querySelector('#confirm').style.display = 'none';
+                document.querySelector('#submit').style.display = 'block';
+            }
+            if (category === 'Work') {
+                const message = document.querySelector('.message');
+                message.innerHTML = 'Select Users and click Create to create the workspace !';
+                document.querySelector('.additional-form').style.display = 'block';
+
+                document.querySelector('#confirm').style.display = 'none';
+                document.querySelector('#submit').style.display = 'block';
+            }
+
+        })
+
+        document.querySelector('#work').addEventListener('submit', (event) => {
+            // When the submit action of the for with id '#work' occurs.
+            const category = document.querySelector('#category').value;
+
+            if (category === 'Work') {
+                const checkboxes = document.querySelectorAll('input[name="selected_users"]:checked');
+
+                if (checkboxes.length === 0) {
+                    event.preventDefault();// preventing the form from submitting
+                    alert("Select at least one user!");
+                }
+            }
+        })
+    })
+</script>
+{% endblock %}

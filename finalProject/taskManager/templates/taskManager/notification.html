@@ -1,0 +1,26 @@
+{% extends 'taskManager/layout.html'%}
+
+{% block body %}
+<div class="container-fluid" style="display: flex; flex-direction: column; justify-content: space-between;">
+    <div class="container" id="notif-container">
+        <div class="card" style="background-color:#606163; border-bottom: 2px solid white;">
+            <div class="card-body" id="notif-header">
+                <i class="fa-solid fa-bell"></i>
+                Notifications
+
+            </div>
+        </div>
+        {% if message %}
+        <p class="notif-text">{{message}}</p>
+        {% endif %}
+
+        {% for notification in notifications %}
+        <div class="card">
+            <div class="card-body notif-text"><i class="fa-regular fa-envelope"></i> {{notification.text}}</div>
+            <div class="card-footer">On : {{notification.created_at}}</div>
+        </div>
+        {% endfor %}
+
+    </div>
+</div>
+{% endblock%}
