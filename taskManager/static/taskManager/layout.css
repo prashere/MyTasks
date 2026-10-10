@@ -87,6 +87,79 @@
 #content{
     background: linear-gradient(#e5e8eb,#b09f95);
     min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+.sidebar-empty{
+    color: #c5c8cc;
+    font-size: 13px;
+    padding: 8px 6px;
+}
+.sidebar-empty[hidden]{
+    display: none !important;
+}
+#notification, #signout{
+    margin-top: 16px;
+}
+.form-lead, .help-text, .member-hint, .empty-lists, .no-tasks{
+    font-family: 'Roboto', sans-serif;
+    color: #22252B;
+}
+.form-lead, .help-text{
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+.form-error{
+    color: #8b1e1e;
+    font-weight: 700;
+    font-family: 'Roboto', sans-serif;
+}
+#member-fields[hidden]{
+    display: none !important;
+}
+.category-badge{
+    background-color: #53655c;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+.list-container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 50px 0;
+}
+.list[hidden], .list_name[hidden], #empty-lists[hidden]{
+    display: none !important;
+}
+.list-rule{
+    border-color: white;
+    height: 2px;
+}
+.task-display.completed{
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+.completed-task{
+    opacity: 0.88;
+}
+.due-overdue{
+    color: #8b1e1e;
+    font-weight: 700;
+}
+#add-list{
+    cursor: pointer;
+}
+.forbidden-page, .notification-page{
+    padding: 40px 20px;
+}
+.forbidden-page h1{
+    font-family: 'Kanit', sans-serif;
+    font-size: 28px;
+}
+.workspace-body{
+    padding-bottom: 40px;
 }
 #create-workspace{
     padding: 30px 0px;
@@ -111,15 +184,20 @@
     font-family: 'Kanit',sans-serif;
     font-weight: 800;
 }
-#title,.title,#description,#category{
+#title,.title,#description,#category,#member_usernames{
     background-color: #c2c7cc;
     width: 100%;
     border: none;
     border-radius: 5px;
     padding: 5px;
-    font-family: 'Robto', sans-serif;
+    font-family: 'Roboto', sans-serif;
     font-weight: 500;
     margin-bottom: 20px;
+}
+#submit{
+    background-color: #22252B;
+    border: none;
+    margin-bottom: 16px;
 }
 #create-workspace label{
     font-family: 'Kanit', sans-serif;

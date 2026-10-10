@@ -31,6 +31,28 @@
     justify-content: center;
     width: 75%;
     margin-left: 100px;
+    gap: 12px;
+}
+.text-container[hidden],.logIn[hidden],.register[hidden]{
+    display: none !important;
+}
+.started{
+    width: 100%;
+    background-color: #b09f95;
+    border: none;
+    color: white;
+    padding: 10px 16px;
+    font-weight: 600;
+}
+.auth-message{
+    width: 100%;
+    color: #8b1e1e;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 600;
+    margin: 0;
+}
+.auth-message[hidden]{
+    display: none !important;
 }
 .title,#t{
     font-family: 'Kanit',sans-serif;

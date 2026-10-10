@@ -1,26 +1,27 @@
-{% extends 'taskManager/layout.html'%}
+{% extends 'taskManager/layout.html' %}
+
+{% block title %}Notifications — myTasks{% endblock %}
 
 {% block body %}
-<div class="container-fluid" style="display: flex; flex-direction: column; justify-content: space-between;">
+<div class="container-fluid notification-page">
     <div class="container" id="notif-container">
-        <div class="card" style="background-color:#606163; border-bottom: 2px solid white;">
+        <div class="card notif-heading">
             <div class="card-body" id="notif-header">
                 <i class="fa-solid fa-bell"></i>
                 Notifications
-
             </div>
         </div>
         {% if message %}
-        <p class="notif-text">{{message}}</p>
+        <p class="notif-text empty-notif">{{ message }}</p>
         {% endif %}
-
         {% for notification in notifications %}
         <div class="card">
-            <div class="card-body notif-text"><i class="fa-regular fa-envelope"></i> {{notification.text}}</div>
-            <div class="card-footer">On : {{notification.created_at}}</div>
+            <div class="card-body notif-text">
+                <i class="fa-regular fa-envelope"></i> {{ notification.text }}
+            </div>
+            <div class="card-footer">{{ notification.created_at|date:"M j, Y, g:i A" }}</div>
         </div>
         {% endfor %}
-
     </div>
 </div>
-{% endblock%}
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends 'taskManager/layout.html' %}
+
+{% block title %}Access denied — myTasks{% endblock %}
+
+{% block body %}
+<div class="container forbidden-page">
+    <h1>This workspace is not available</h1>
+    <p>You are not a member of this workspace. Ask the creator to invite your username, or open one of your own from the sidebar.</p>
+    <a class="btn btn-dark" href="{% url 'workspace' %}">Back to workspaces</a>
+</div>
+{% endblock %}

@@ -1,80 +1,153 @@
-# Workspace Task Manager
+# myTasks
 
-## Description
+A workspace-based task manager for people who keep both a personal to-do list and shared work with a small team.
 
-Workspace Task Manager is a feature rich task management web application built on a combination of HTML, CSS, Bootstrap, Django and JavaScript.
- It allows users to efficiently manage their tasks and workspaces. Whether its organizing personal to-do lists or collaborating with colleagues on work-related projects, it caters to both the needs.
+You create a workspace, add lists inside it, then add tasks with a due date and a priority. Personal workspaces stay private. Work workspaces let you invite people by username, assign a task to someone, and notify them when they are added.
 
-## Distinctiveness & Complexity
+The product is a browser app. There is no mobile client and no third-party login.
 
-This project's fulfillment of distinctiveness and complexity requirements is evidenced by the following:
+---
 
-- This application's distinctiveness is evident in its versatile workspace management, role-based task creation, customizable task prioritization, support for both individual and team workspaces, member addition, task manipulation, multiple to-do lists within a single workspace, notification feature, responsiveness, multiple navbars, and dynamic updates via AJAX.
+## Who it is for
 
-- In 'Work' category workspaces, differentiating between creators and members, and loading specific content, involved intricate coding and meticulous testing.
-- Adding role-based access control made things more complicated. It allowed creators to have full control over tasks but needed careful management to limit what members could do.
-- Allowing creators to manage tasks across multiple workspaces demanded complex model design, dynamic front-end handling across various sections, which posed a challenge.
-- Achieving responsiveness for small screen sizes with numerous icons and text in the side navbar was also a significant challenge.
+- Students or small teams who want lists grouped by project, not one endless inbox
+- Anyone who currently splits “my tasks” and “team tasks” across notes and group chats
+- A first place to try role-based access: the creator runs the board, members complete what was assigned to them
+
+---
 
 
-# Files and Description
 
-This Django Project consists of a single app named `taskManager`. All of the app's files are located within the `/taskManager` directory. The `urls.py` file within this directory contains URL patterns for both the web application and APIs.
+## What you can do
 
-The `views.py` file contains numerous functions, each documented with specific functionality in their respective docstrings.
 
-Within the `/templates/taskManager` directory, you'll find 5 HTML templates:
+| Area                   | What you get                                                                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Accounts**           | Register and sign in. Signed-in users go straight to workspaces.                                                                                             |
+| **Personal workspace** | Only you. Create lists, add tasks, edit, delete, mark complete.                                                                                              |
+| **Work workspace**     | Invite registered users by username. They are notified. You assign each task.                                                                                |
+| **Lists**              | Several to-do lists inside one workspace, opened from the Lists menu.                                                                                        |
+| **Tasks**              | Title, due date, priority (High / Medium / Low). Completed items stay on the list with a strike-through so you can undo them. Overdue open tasks are marked. |
+| **Roles**              | Creators add and edit. Members see only tasks assigned to them and can complete those.                                                                       |
+| **Notifications**      | A feed when someone adds you to a Work workspace.                                                                                                            |
 
-1. `index.html`: This serves as the main landing page when opening the app. It dynamically generates the sign-in and register forms through the associated JavaScript file `index.js`.
 
-2. `notification.html`: This template is used for displaying notifications and inherits from `layout.html`.
+---
 
-3. `createWork.html`: This template is for creating new workspaces and inherits from `layout.html`.
 
-4. `indi_workspace.html`: This template inherits from `layout.html`, which includes a side navbar. `workspace.js` is linked to `indi_workspace.html`, containing functions that make API calls and dynamically modify page content.
 
-Additionally, there are two CSS files:
+## How a typical journey works
 
-1. `layout.css`: This file contains styling information for the layout.
+```text
+Create an account
+    → Create a Personal workspace, or a Work workspace and invite usernames
+        → Add a list
+            → Add tasks (assign them if it is a Work workspace)
+                → Open the list, complete or edit items
+                    → Members get a notification and see only their assignments
+```
 
-2. `style.css`: This file contains additional styling rules for the application.
+---
 
-## Features:
 
-1. **User Account Creation**
-   - Users create accounts to manage workspaces and task lists.
 
-2. **New Workspace Creation**
-   - Upon signing in, users access a workspace creation form.
-   - Form includes fields for title (text), description (textarea), and category (select: 'Personal' or 'Work'). Choosing 'Work' adds user checkboxes, with at least one selection required.
-   - After workspace creation, users are redirected to the workspace page.
+## Architecture
 
-3. **Task Lists**
-   - Within workspaces, users click '+ ADD NEW LIST' to create task lists.
-   - They must enter title and click 'Create' to add the task list.
-   - Task lists are accessible via the 'Lists' dropdown in the top navbar.
+```mermaid
+flowchart LR
+  subgraph Browser
+    UI["HTML + Bootstrap + JS"]
+  end
 
-4. **Task Creation**
-   - In each task list, below the title, there's a form with a 'Save' button to add tasks.
-   - For Personal workspaces, users input task, due-date, and priority.
-   - In Work workspaces, creators assign tasks to members, inputting task, due-date, priority, and assignee.
-   - Non-creators in Work workspaces can't add tasks.
+  subgraph Django["Django app (`taskManager`)"]
+    Pages["Pages"]
+    API["JSON APIs"]
+    Auth["Session auth + CSRF"]
+  end
 
-5. **Task Management**
-   - Users view, edit, or delete tasks.
-   - Tasks can be marked as completed by checking the leftmost button.
+  DB[("SQLite")]
 
-6. **Task Management in Work Workspaces**
-   - Workspace members view assigned tasks but can't edit or delete them.
-   - They can only mark tasks as completed.
-   - Creators can edit, delete tasks, and assign them.
+  UI --> Pages
+  UI --> API
+  Pages --> Auth
+  API --> Auth
+  Auth --> DB
+```
 
-7. **Notifications**
-   - Users receive notifications when added to 'Work' category workspaces. Notifications are accessible in their notification page.
 
-## Installation and Usage
-1.	Clone this repository in your local device.
-2. Run 'python manage.py makemigrations taskManager' in terminal.
-3. Run 'python manage.py migrate' in terminal.
-2.	In terminal run ‘python manage.py runserver’ to start the web app.
+
+```text
+Browser  →  Django (PORT, default 8002 in this checkout)
+                →  SQLite (db.sqlite3)
+                →  Session cookie + CSRF token
+```
+
+**Pages.** Landing (sign in / register), create workspace, workspace board, notifications.
+
+**APIs.** Lists, tasks, completion, sidebar workspace list. All mutating calls require a signed-in session and a CSRF token. Workspace IDs are checked against membership before anything is returned.
+
+The Django project package is still named `finalProject` (the original college project name). The app you work in is `taskManager`.
+
+---
+
+
+
+## Technology
+
+
+| Layer   | Choice                                     |
+| ------- | ------------------------------------------ |
+| Website | HTML, CSS, Bootstrap 5, vanilla JavaScript |
+| App     | Python 3.10+, Django 4.2                   |
+| Store   | SQLite                                     |
+| Auth    | Django users and sessions                  |
+
+
+No paid APIs. No Docker. A virtual environment is enough.
+
+---
+
+
+
+## Project layout
+
+```text
+MyTasks/
+├── manage.py
+├── setup.md                 Step-by-step local setup
+├── .env.template            Port, debug, secret key
+├── finalProject/            Django project settings
+├── taskManager/
+│   ├── models.py            Users, Workspace, TaskList, Task, Notification
+│   ├── views.py             Pages and JSON APIs
+│   ├── urls.py
+│   ├── templates/taskManager/
+│   └── static/taskManager/
+└── requirements.txt
+```
+
+---
+
+
+
+## Getting started
+
+Install, first run, and a working checklist are in **[setup.md](setup.md)**.
+
+The short version:
+
+```bash
+cd MyTasks
+python3.12 -m venv .venv   # python3 -m venv if that is already 3.10+
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+pip install -r requirements.txt
+cp .env.template .env
+python manage.py migrate
+python manage.py runserver 8002
+```
+
+Then open [http://localhost:8002](http://localhost:8002).
+
+---
 

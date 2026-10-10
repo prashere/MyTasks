@@ -1,422 +1,464 @@
-from django.shortcuts import render
+import json
+import re
+from json.decoder import JSONDecodeError
+
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.db.models import Q
+from django.http import HttpResponseForbidden, HttpResponseRedirect, JsonResponse
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.http import HttpResponseRedirect,JsonResponse
-from django.contrib.auth import login, logout, authenticate
+from django.views.decorators.http import require_GET, require_POST
 
-from .models import Users,Workspace,TaskList,Task,Notification
+from .models import Notification, Task, TaskList, Users, Workspace
 
-import json
-from json.decoder import JSONDecodeError
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
+PRIORITY_LABELS = {"H": "High", "M": "Medium", "L": "Low"}
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,30}$")
+
+
+def _json_error(message, status=400):
+    return JsonResponse({"error": message}, status=status)
+
+
+def _parse_json(request):
+    try:
+        return json.loads(request.body.decode("utf-8") or "{}")
+    except (JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
+def _workspace_or_403(request, workspace_id):
+    workspace = get_object_or_404(Workspace, pk=workspace_id)
+    if not workspace.user_can_access(request.user):
+        return None, _json_error("You do not have access to this workspace.", 403)
+    return workspace, None
+
+
+def _task_or_403(request, task_id):
+    task = get_object_or_404(Task, pk=task_id)
+    workspace = task.task_list.workspace
+    if not workspace.user_can_access(request.user):
+        return None, _json_error("You do not have access to this task.", 403)
+    return task, None
+
+
+def _require_creator(request, workspace):
+    if not workspace.user_is_creator(request.user):
+        return _json_error("Only the workspace creator can do that.", 403)
+    return None
+
+
+def _task_payload(task):
+    return {
+        "id": task.id,
+        "title": task.title,
+        "due_date": task.due_date.isoformat() if task.due_date else None,
+        "priority": task.priority,
+        "priority_label": PRIORITY_LABELS.get(task.priority, task.priority),
+        "assigned_to": task.assigned_to.username if task.assigned_to else None,
+        "is_completed": task.is_completed,
+    }
+
+
+def health(request):
+    return JsonResponse({"status": "ok", "service": "mytasks"})
 
 
 def index(request):
-    """
-    Renders the index page of the website
-    """
-    return render(request, 'taskManager/index.html')
+    if request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("workspace"))
+    return render(request, "taskManager/index.html")
 
-
-def individual_workspace(request,id):
-    """
-    Renders the requested Workspace's page based on its ID
-    """
-    current_members = []
-
-    details = Workspace.objects.get(pk=id)
-    members = details.members.all()
-    for user in members:
-        current_members.append(user.username)
-
-    return render(request,'taskManager/indi_workspace.html',{'details':details,'members':members})
-
-
-def create_workspace(request):
-    """
-    If the request's method is post:
-        Gets all the necessary values input by the user, creates a workspace object and saves
-        it. Then it renders a new page for the created workspace.
-    Else:
-        Renders a page that contains a form which lets the user create a new workspace.
-    """
-    category = []
-    choice = Workspace.choice
-
-    user = Users.objects.all()
-    for item in choice:
-        category.append(item[0])
-
-    if request.method == 'POST':
-        creator = request.user
-        title = request.POST['title']
-        description = request.POST['description']
-        category_sent = request.POST['category']
-        selected_users = request.POST.getlist('selected_users')
-
-        workspace = Workspace(title=title,description=description,category=category_sent,creator=creator)
-        workspace.save()
-        
-        if category_sent =='Work':
-             if selected_users:
-                for user_id in selected_users:
-                 # Retrieving Users instance via id
-                 user = Users.objects.get(pk=int(user_id))  
-                 title=f'You have been added to {workspace.title} workspace'
-
-                # Creating and saving notification instance
-                 notification = Notification(receiver=user,text=title)
-                 notification.save()
-
-                # Adding user object as a member of workspace
-                 workspace.members.add(user) 
-
-        url = reverse('indi_workspace', args=[workspace.id])
-        return HttpResponseRedirect(url)
-
-    return render(request, 'taskManager/createWork.html',{'choice':category,'users':user})
-
-
-@csrf_exempt
-def login_view(request):
-    """
-    Handles the user login through post request. If the username and password are correct,
-    logs the user in otherwise returns appropriate error messages.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required '},status = 400)
-    
-    data = json.loads(request.body.decode('utf-8'))
-    username = data['username']
-    password = data['password']
-
-    user = authenticate(request, username=username,password=password)
-
-    if user is not None:
-        login(request,user)
-        return JsonResponse({'message':'Login Successful'},status = 200)
-    else:
-        try:
-            user = Users.objects.get(username=username)
-        except Users.DoesNotExist:
-            return JsonResponse({'error': "Username doesn't exist"}, status=400)
-        
-        return JsonResponse({'error': "Invalid password"}, status=400)
-
-
-@csrf_exempt   
-def register_view(request):
-    """
-    Handles the user registration through post request.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required '},status = 400)
-    
-    data = json.loads(request.body)
-    username = data['username']
-    email = data['email']
-    password = data['password']
-    confirmation = data['re-password']
-    if confirmation != password:
-        return JsonResponse( {'error':'Passwords do not match'},status= 400)
-    
-    # Attempting to create a new user
-    try:
-        user = Users.objects.create_user(username,email,password)
-        user.save()
-        return JsonResponse({'message':"Successful Registration"},status = 200)
-    except IntegrityError:
-        return JsonResponse({'error':'Username already taken'}, status = 400)
-    
-
-def logout_view(request):
-    """
-    Log a user out and redirect them to the index page.
-    """
-    logout(request)
-    return HttpResponseRedirect(reverse('index'))
-
-
-@csrf_exempt
-def create_taskList(request):
-    """
-    If request's method is POST:
-        Create a new task list associated with a workspace and saves it.
-
-    In every case(success/error) it returns featured informative JSON responses.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required'},status = 400)
-    try:
-         data = json.loads(request.body)
-         workspace_id = data.get('workspace_id')
-         title = data.get('title')
-
-         workspace = Workspace.objects.get(pk=workspace_id)
-         # Category of current workspace
-         category = workspace.category
-         # Members of the current workspace
-         members = workspace.members.all()
-         current_members = []
-
-         for person in members:
-             current_members.append(person.username)
-
-         new_taskList = TaskList(title = title,workspace = workspace)
-         new_taskList.save()
-         return JsonResponse({'message':'Tasklist successfully created','tasklist_id':new_taskList.id,'category':category,'current_members':current_members},status = 200)
-    except JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON data in the request'}, status=400)
-    except:
-        return JsonResponse({'error':"Problem creating tasklist"}, status = 400)
-    
-
-@csrf_exempt  
-def create_task(request):
-    """
-    If request's method is POST:
-        Create a new task associated with a tasklist and saves it.
-
-    In every case(success/error) it returns featured informative JSON responses.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required'})
-    try:
-        data = json.loads(request.body)
-        task = data.get('task')
-        priority = data.get('priority')
-        date = data.get('date')
-        assigned_to = data.get('assigned_to')
-
-        if assigned_to:
-            assigned_user = Users.objects.get(username = assigned_to)
-        else:
-            assigned_user = None
-
-        tasklist_id = data.get('tasklist_id')
-        tasklist = TaskList.objects.get(pk=tasklist_id)
-        if task.strip():
-            new_task = Task(title = task, due_date = date, priority=priority,task_list = tasklist,assigned_to = assigned_user)
-            new_task.save()
-            return JsonResponse({'message':'Task successfully added'}, status = 200)
-        else:
-            return JsonResponse({'error':'Task cannot be empty'},status=400)
-    except JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON data in the request'}, status=400)
-    except TaskList.DoesNotExist:
-        return JsonResponse({'error': 'TaskList does not exist'}, status=400)
-    
 
 @login_required
-def user_workspace(request):
-    """
-    Gets the currently authenticated user from the request.
+def individual_workspace(request, id):
+    workspace = get_object_or_404(Workspace, pk=id)
+    if not workspace.user_can_access(request.user):
+        return render(request, "taskManager/forbidden.html", status=403)
+    members = workspace.members.all()
+    return render(
+        request,
+        "taskManager/indi_workspace.html",
+        {"details": workspace, "members": members},
+    )
 
-    Tries to fetch all the workspaces created by the current user and sends it in the form of JSON response.
-    If there is problem in fetching it, returns an error as a JSON response.
-    """
-    current_user = request.user
+
+@login_required
+def create_workspace(request):
+    categories = [item[0] for item in Workspace.CATEGORY_CHOICES]
+    context = {"choice": categories, "error": "", "form": {}}
+
+    if request.method != "POST":
+        return render(request, "taskManager/createWork.html", context)
+
+    title = (request.POST.get("title") or "").strip()
+    description = (request.POST.get("description") or "").strip()
+    category_sent = request.POST.get("category") or ""
+    raw_members = request.POST.get("member_usernames") or ""
+    context["form"] = {
+        "title": title,
+        "description": description,
+        "category": category_sent,
+        "member_usernames": raw_members,
+    }
+
+    if not title or not description or category_sent not in {"Personal", "Work"}:
+        context["error"] = "Title, description, and a valid category are required."
+        return render(request, "taskManager/createWork.html", context)
+
+    member_names = [name.strip() for name in raw_members.split(",") if name.strip()]
+    members = []
+    missing = []
+    if category_sent == "Work":
+        if not member_names:
+            context["error"] = "Add at least one teammate username for a Work workspace."
+            return render(request, "taskManager/createWork.html", context)
+        for name in member_names:
+            if name == request.user.username:
+                continue
+            try:
+                members.append(Users.objects.get(username=name))
+            except Users.DoesNotExist:
+                missing.append(name)
+        if missing:
+            context["error"] = (
+                "These usernames were not found: " + ", ".join(missing) + "."
+            )
+            return render(request, "taskManager/createWork.html", context)
+        if not members:
+            context["error"] = "Add at least one teammate besides yourself."
+            return render(request, "taskManager/createWork.html", context)
+
+    workspace = Workspace(
+        title=title,
+        description=description,
+        category=category_sent,
+        creator=request.user,
+    )
+    workspace.save()
+
+    if category_sent == "Work":
+        for user in members:
+            Notification.objects.create(
+                receiver=user,
+                text=f"{request.user.username} added you to {workspace.title}.",
+            )
+            workspace.members.add(user)
+
+    return HttpResponseRedirect(reverse("indi_workspace", args=[workspace.id]))
+
+
+@require_POST
+def login_view(request):
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
+
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    if not username or not password:
+        return _json_error("Username and password are required.")
+
+    user = authenticate(request, username=username, password=password)
+    if user is None:
+        if Users.objects.filter(username=username).exists():
+            return _json_error("Incorrect password.")
+        return _json_error("That username does not exist.")
+
+    login(request, user)
+    return JsonResponse({"message": "Signed in.", "redirect": "/workspace"}, status=200)
+
+
+@require_POST
+def register_view(request):
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
+
+    username = (data.get("username") or "").strip()
+    email = (data.get("email") or "").strip()
+    password = data.get("password") or ""
+    confirmation = data.get("re-password") or ""
+
+    if not USERNAME_RE.match(username):
+        return _json_error(
+            "Username must be 3–30 characters: letters, numbers, dots, hyphens, or underscores."
+        )
+    if "@" not in email or "." not in email:
+        return _json_error("Enter a valid email address.")
+    if len(password) < 8:
+        return _json_error("Password must be at least 8 characters.")
+    if confirmation != password:
+        return _json_error("Passwords do not match.")
+
     try:
-        workspaces = (Workspace.objects.filter(Q(creator=current_user) | Q(members=current_user)).distinct()).order_by('-created_at')
-        workspace_data = [{
-            'id': workspace.id,
-            'title': workspace.title
+        user = Users.objects.create_user(username, email, password)
+    except IntegrityError:
+        return _json_error("That username is already taken.")
+
+    login(request, user)
+    return JsonResponse(
+        {"message": "Account created.", "redirect": "/workspace"}, status=200
+    )
+
+
+@login_required
+def logout_view(request):
+    logout(request)
+    return HttpResponseRedirect(reverse("index"))
+
+
+@login_required
+@require_POST
+def create_taskList(request):
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
+
+    title = (data.get("title") or "").strip()
+    workspace_id = data.get("workspace_id")
+    if not title:
+        return _json_error("List title cannot be empty.")
+
+    workspace, error = _workspace_or_403(request, workspace_id)
+    if error:
+        return error
+    creator_error = _require_creator(request, workspace)
+    if creator_error:
+        return creator_error
+
+    new_task_list = TaskList(title=title, workspace=workspace)
+    new_task_list.save()
+    return JsonResponse(
+        {
+            "message": "List created.",
+            "tasklist_id": new_task_list.id,
+            "category": workspace.category,
+            "current_members": list(workspace.members.values_list("username", flat=True)),
+        },
+        status=200,
+    )
+
+
+@login_required
+@require_POST
+def create_task(request):
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
+
+    title = (data.get("task") or "").strip()
+    priority = data.get("priority")
+    date = data.get("date")
+    assigned_to = (data.get("assigned_to") or "").strip()
+    tasklist_id = data.get("tasklist_id")
+
+    if not title:
+        return _json_error("Task cannot be empty.")
+    if priority not in {"H", "M", "L"}:
+        return _json_error("Choose a priority.")
+    if not date:
+        return _json_error("A due date is required.")
+
+    tasklist = get_object_or_404(TaskList, pk=tasklist_id)
+    workspace = tasklist.workspace
+    if not workspace.user_can_access(request.user):
+        return _json_error("You do not have access to this workspace.", 403)
+    creator_error = _require_creator(request, workspace)
+    if creator_error:
+        return creator_error
+
+    assigned_user = None
+    if workspace.category == "Work":
+        if not assigned_to:
+            return _json_error("Assign the task to a teammate.")
+        try:
+            assigned_user = Users.objects.get(username=assigned_to)
+        except Users.DoesNotExist:
+            return _json_error("That teammate was not found.")
+        if assigned_user != workspace.creator and not workspace.members.filter(
+            pk=assigned_user.id
+        ).exists():
+            return _json_error("You can only assign tasks to workspace members.")
+
+    Task.objects.create(
+        title=title,
+        due_date=date,
+        priority=priority,
+        task_list=tasklist,
+        assigned_to=assigned_user,
+    )
+    return JsonResponse({"message": "Task added."}, status=200)
+
+
+@login_required
+@require_GET
+def user_workspace(request):
+    workspaces = (
+        Workspace.objects.filter(Q(creator=request.user) | Q(members=request.user))
+        .distinct()
+        .order_by("-created_at")
+    )
+    workspace_data = [
+        {
+            "id": workspace.id,
+            "title": workspace.title,
+            "category": workspace.category,
         }
         for workspace in workspaces
-        ] 
-        return JsonResponse({'workspaces': workspace_data}, status=200, safe=False)
-    except:
-        return JsonResponse({'error':"Problem fetching user's workspaces"},status = 400)
+    ]
+    return JsonResponse({"workspaces": workspace_data}, status=200)
 
 
 @login_required
-@csrf_exempt
+@require_POST
 def user_lists(request):
-    """
-    If request's method is post:
-       - Gets the currently authenticated user form the request
-       - Fetches the tasklists created by that user 
-         within the specified workspace. 
-       - It then returns a JSON response containing a list of tasklists.
-    If an issue occurs:
-        - Returns error as a JSON response.
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
 
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required'})
-    
-    try:
-        data = json.loads(request.body)
+    workspace, error = _workspace_or_403(request, data.get("id"))
+    if error:
+        return error
 
-        id = data.get('id')
-        current_workspace = Workspace.objects.get(pk=id)
-
-        created_tasklists = (TaskList.objects.filter(workspace = current_workspace)).order_by('-created_at')
-        tasklists =[{
-            'title':tasklist.title,
-            'id':tasklist.id
-        }
-        for tasklist in created_tasklists]
-
-        return JsonResponse({'tasklists':tasklists}, safe=False, status = 200)
-    except:
-        return JsonResponse({'error':"Problem fetching user's tasklists"},status = 400)
+    created_tasklists = TaskList.objects.filter(workspace=workspace).order_by(
+        "-created_at"
+    )
+    tasklists = [{"title": item.title, "id": item.id} for item in created_tasklists]
+    return JsonResponse({"tasklists": tasklists}, status=200)
 
 
-@csrf_exempt
+@login_required
+@require_POST
 def return_tasks(request):
-    """
-    If request's method is post:
-        - It retrieves tasks associated with the
-          specified tasklist, orders them by their creation date in descending order, and returns
-          them as a JSON response.
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
 
-    If an issue occurs:
-        - Returns error as a JSON response.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required'})
-    
-    #try:
-    is_creator = False
-    not_assigned= False
-    data = json.loads(request.body)
-    tasklist_id = data.get('id')
-    current_tasklist = TaskList.objects.get(id=tasklist_id)
-    workspace = current_tasklist.workspace
-    creator = workspace.creator
-    category = workspace.category
-    if creator == request.user:
-        is_creator = True
-    if(category == 'Personal'):
-        present_tasks = (Task.objects.filter(task_list = current_tasklist)).order_by('-created_at')
-        if not present_tasks.exists():
-            not_assigned = True
-        data={'is_creator':is_creator,'category':category,'not_assigned':not_assigned,'tasks': [
-        {'id':task.id,
-         'title':task.title,
-         'due_date':task.due_date,
-         'priority':task.priority,
-        }
-         for task in present_tasks
-    ]}
-    elif(category == 'Work' and creator!=request.user):
-        present_tasks = (Task.objects.filter(task_list = current_tasklist,assigned_to =request.user)).order_by('-created_at')
-        if not present_tasks.exists():
-            not_assigned = True
-        data={'is_creator':is_creator,'category':category,'not_assigned':not_assigned,'tasks': [
-        {'id':task.id,
-         'title':task.title,
-         'due_date':task.due_date,
-         'priority':task.priority,
-         'assigned_to':(task.assigned_to).username
-        }
-         for task in present_tasks
-    ]}
-    elif(category == 'Work' and creator == request.user):
-        present_tasks = (Task.objects.filter(task_list = current_tasklist)).order_by('-created_at')
-        if not present_tasks.exists():
-            not_assigned = True
-        data={'is_creator':is_creator,'category':category,'not_assigned':not_assigned,'tasks': [
-        {'id':task.id,
-         'title':task.title,
-         'due_date':task.due_date,
-         'priority':task.priority,
-         'assigned_to':(task.assigned_to).username
-        }
-         for task in present_tasks
-    ]}
-    return JsonResponse({'task_data':data},safe=False, status = 200)
-    #except:
-        #return JsonResponse({'error':"Problem fetching user's tasks"},status = 400)
+    tasklist = get_object_or_404(TaskList, pk=data.get("id"))
+    workspace = tasklist.workspace
+    if not workspace.user_can_access(request.user):
+        return _json_error("You do not have access to this workspace.", 403)
+
+    is_creator = workspace.user_is_creator(request.user)
+    if workspace.category == "Work" and not is_creator:
+        present_tasks = Task.objects.filter(
+            task_list=tasklist, assigned_to=request.user
+        )
+    else:
+        present_tasks = Task.objects.filter(task_list=tasklist)
+
+    present_tasks = present_tasks.order_by("is_completed", "-created_at")
+    payload = {
+        "is_creator": is_creator,
+        "category": workspace.category,
+        "not_assigned": not present_tasks.exists(),
+        "tasks": [_task_payload(task) for task in present_tasks],
+    }
+    return JsonResponse({"task_data": payload}, status=200)
 
 
-@csrf_exempt
+@login_required
+@require_POST
 def delete_task(request):
-    """
-    If request's method is post:
-        - Fetches the tasklist via sent id and deletes it.
-    Else:
-        -Returns error in JSON response.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required '},status = 400)
-    try:
-        data=json.loads(request.body)
-        id = data.get('task_id')
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
 
-        task = Task.objects.get(pk=id)
-        task.delete()
-        return JsonResponse({'message':'Task successfully deleted !'},status=200)
-    except:
-        return JsonResponse({'error':'Problem deleting the task!'},status = 400)
+    task, error = _task_or_403(request, data.get("task_id"))
+    if error:
+        return error
+    creator_error = _require_creator(request, task.task_list.workspace)
+    if creator_error:
+        return creator_error
+
+    task.delete()
+    return JsonResponse({"message": "Task deleted."}, status=200)
 
 
-@csrf_exempt
+@login_required
+@require_POST
 def edit_task(request):
-    """
-    If request's method is post:
-        - Fetches the tasklist via sent id, sets its content to sent content and saves it.
-    Else:
-        -Returns error in JSON response.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required '},status = 400)
-    try:
-        data=json.loads(request.body)
-        id = data.get('task_id')
-        task_value = data.get('task')
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
 
-        task = Task.objects.get(pk=id)
-        task.title=task_value
-        task.save()
+    task, error = _task_or_403(request, data.get("task_id"))
+    if error:
+        return error
+    creator_error = _require_creator(request, task.task_list.workspace)
+    if creator_error:
+        return creator_error
 
-        return JsonResponse({'message':'Task successfully edited and saved !'},status=200)
-    except:
-        return JsonResponse({'error':'Problem editing the task!'},status = 400)
-    
+    title = (data.get("task") or "").strip()
+    if not title:
+        return _json_error("Task cannot be empty.")
+
+    task.title = title
+    task.save(update_fields=["title"])
+    return JsonResponse({"message": "Task updated."}, status=200)
+
+
+@login_required
+@require_POST
+def complete_task(request):
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
+
+    task, error = _task_or_403(request, data.get("task_id"))
+    if error:
+        return error
+
+    workspace = task.task_list.workspace
+    is_assignee = task.assigned_to_id == request.user.id
+    if workspace.category == "Work" and not (
+        workspace.user_is_creator(request.user) or is_assignee
+    ):
+        return _json_error("You can only complete tasks assigned to you.", 403)
+
+    task.is_completed = bool(data.get("is_completed", True))
+    task.save(update_fields=["is_completed"])
+    return JsonResponse(
+        {"message": "Task updated.", "is_completed": task.is_completed}, status=200
+    )
+
+
 @login_required
 def show_notification(request):
-    """
-        It retrieves and displays notifications for the currently logged-in user.
-    """
-    current_user = request.user
-    message = ''
-
-    notifs = (Notification.objects.filter(receiver = current_user)).order_by('-created_at')
-    if not notifs.exists():
-        message='No notifications yet !'
-
-    return render(request,'taskManager/notification.html',{'notifications':notifs,'message':message})
+    notifs = Notification.objects.filter(receiver=request.user).order_by("-created_at")
+    message = "No notifications yet." if not notifs.exists() else ""
+    return render(
+        request,
+        "taskManager/notification.html",
+        {"notifications": notifs, "message": message},
+    )
 
 
-@csrf_exempt
+@login_required
+@require_POST
 def return_workspace_info(request):
-    """
-        It returns information about a workspace based on a POST request containing the workspace_id.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'error':'POST request required'},status = 400)
-    try:
-         data = json.loads(request.body)
-         workspace_id = data.get('workspace_id')
+    data = _parse_json(request)
+    if data is None:
+        return _json_error("Invalid JSON data in the request")
 
-         workspace = Workspace.objects.get(pk=workspace_id)
-         category = workspace.category
-         members = workspace.members.all()
-         current_members = []
+    workspace, error = _workspace_or_403(request, data.get("workspace_id"))
+    if error:
+        return error
 
-         for person in members:
-             current_members.append(person.username)
-
-         return JsonResponse({'message':'Workspace info fetch success','category':category,'current_members':current_members},status = 200)
-    except JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON data in the request'}, status=400)
-    except:
-        return JsonResponse({'error':"Problem fetching workspace info"}, status = 400)
-    
+    return JsonResponse(
+        {
+            "message": "Workspace info fetch success",
+            "category": workspace.category,
+            "current_members": list(workspace.members.values_list("username", flat=True)),
+            "is_creator": workspace.user_is_creator(request.user),
+        },
+        status=200,
+    )
 
 
-
+def csrf_failure(request, reason=""):
+    if request.path.startswith("/login") or request.content_type == "application/json":
+        return _json_error("Session expired. Refresh the page and try again.", 403)
+    return HttpResponseForbidden("CSRF check failed. Refresh the page and try again.")
